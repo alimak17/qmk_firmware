@@ -40,7 +40,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 [0] = LAYOUT(
   KC_GRV,   KC_1,   KC_2,    KC_3,    KC_4,    KC_5,                                                                        KC_6,    KC_7,    KC_8,    KC_9,    KC_0,  KC_GRV,
-  KC_ESC,   KC_Q,   KC_W,    KC_E,    KC_R,    KC_T,                                                                        KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,  KC_BSPC,
+  KC_ESC,   KC_Q,   KC_W,   KC_E,    KC_R,    KC_T,                                                                        KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,  KC_BSPC,
   KC_TAB,   KC_A,   KC_S,    KC_D,    KC_F,    KC_G,                                                                        KC_H,    KC_J,    KC_K,    KC_L, KC_SCLN,  KC_QUOT,
   KC_LSFT,  MT(MOD_LGUI,KC_Z),   MT(MOD_LCTL,KC_X),   MT(MOD_LALT,KC_C),   MT(MOD_LSFT,KC_V),    KC_B, KC_MUTE,     XXXXXXX,KC_N,    MT(MOD_LSFT,KC_M),  MT(MOD_LALT,KC_COMM),   MT(MOD_LCTL,KC_DOT),  MT(MOD_LGUI,KC_SLSH),  KC_RSFT,
   KC_LGUI,TG(2),KC_CAPS, LT(2,KC_ENT), LT(3,KC_SPC),                                                                    LT(3,KC_SPC),  LT(2,KC_BSPC), KC_CAPS, KC_RALT, KC_RGUI
@@ -114,26 +114,38 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 bool caps_word_press_user(uint16_t keycode) {
-    switch (keycode) {
-        // Keycodes that continue Caps Word, with shift applied.
-    case KC_A ... KC_Z:
-    case KC_QUOT:
-    case KC_MINS:
-    case KC_SCLN:
-    case KC_COMM:
-    case KC_DOT:
-    case KC_SLSH:
-        add_weak_mods(MOD_BIT(KC_LSFT));  // Apply shift to the next key.
-        return true;
+    // Resolve wrapped keys to their TAP key so HRMs/LT() don't break Caps Word.
+    uint16_t tap_kc = keycode;
+    if (IS_QK_MOD_TAP(keycode)) {
+        tap_kc = QK_MOD_TAP_GET_TAP_KEYCODE(keycode);
+    } else if (IS_QK_LAYER_TAP(keycode)) {
+        tap_kc = QK_LAYER_TAP_GET_TAP_KEYCODE(keycode);
+    }
 
-        // Keycodes that continue Caps Word, without shifting.
-    case KC_1 ... KC_0:
-    case KC_BSPC:
-    case KC_DEL:
-    case KC_UNDS:
-        return true;
+    switch (tap_kc) {
+        // Keep Caps Word and apply Shift (works even if Option/Kana are held)
+        case KC_A ... KC_Z:
+        case KC_QUOT:
+        case KC_MINS:
+        case KC_SCLN:
+        case KC_COMM:
+        case KC_DOT:
+        case KC_SLSH:
+            add_weak_mods(MOD_BIT(KC_LSFT));  // shift next key
+            return true;
 
-    default:
-        return false;  // Deactivate Caps Word.
+        // Keep Caps Word, but DON'T add Shift for these alone
+        case KC_1 ... KC_0:
+        case KC_BSPC:
+        case KC_DEL:
+        case KC_UNDS:
+        case KC_LALT: case KC_RALT:  // Option
+        case KC_LNG1: case KC_LNG2:  // Kana / Eisu
+        case KC_INT4: case KC_INT5:  // Henkan / Muhenkan
+        case KC_CAPS:
+            return true;
+
+        default:
+            return false;  // exit Caps Word
     }
 }
