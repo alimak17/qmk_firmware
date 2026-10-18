@@ -69,7 +69,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                     TG(1),KC_LALT,KC_LCTL, KC_ENT, KC_SPC,      KC_SPC,  KC_TRNS, KC_RCTL, KC_RALT, KC_RGUI
 ),
 
-/* LOWER optimized for Dvorak layout
+/* RAISE optimized for Dvorak layout
  * ,-----------------------------------------.                    ,-----------------------------------------.
  * |      |  F1  |  F2  |  F3  |  F4  |  F5  |                    |  F6  |  F7  |  F8  |  F9  | F10  | F11  |
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
@@ -90,7 +90,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
   _______,  S(KC_E), KC_DLR, KC_PERC, KC_CIRC, S(KC_MINS), _______,       _______, S(KC_EQL), MT(MOD_LSFT,KC_P1), MT(MOD_LALT,KC_P2), MT(MOD_LCTL,KC_P3), S(KC_LBRC), _______,
                        _______, _______, _______, _______, _______,       _______, _______, _______, KC_0, _______
 ),
-/* RAISE
+/* LOWER
  * ,----------------------------------------.                    ,-----------------------------------------.
  * |  ‚   |  ‘   |  ’   |  „   |  “   |  ”   |                    |      |      |      |      |      |      |
  * |------+------+------+------+------+------|                    |------+------+------+------+------+------|
@@ -105,13 +105,78 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *            `----------------------------------'           '------''---------------------------'
  */
 [3] = LAYOUT(
-  LALT(LSFT(KC_0)), LALT(KC_RBRC), LALT(LSFT(KC_RBRC)), LALT(LSFT(KC_W)), LALT(KC_LBRC), LALT(LSFT(KC_LBRC)),             _______,  _______,  _______,  _______,  _______,  _______,
+  S(LGUI(KC_0)),      LGUI(KC_EQL),   S(LGUI(KC_EQL)),      S(LGUI(KC_COMM)), LGUI(KC_MINS),    S(LGUI(KC_MINS)),             _______,  _______,  _______,  _______,  _______,  _______,
   _______,           KC_INS,        KC_PSCR,              KC_APP,          XXXXXXX,       XXXXXXX,                        KC_PGUP,  _______,  KC_UP,     _______,  _______,  KC_BSPC,
   _______,           KC_LALT,       KC_LCTL,              KC_LSFT,         XXXXXXX,       KC_CAPS,                        KC_PGDN,  KC_LEFT,  KC_DOWN,   KC_RGHT,  KC_DEL,   KC_BSPC,
   _______,           KC_UNDO,       KC_CUT,               KC_COPY,         KC_PASTE,      XXXXXXX,                    _______,  _______,  _______,  _______,  XXXXXXX,  _______,  XXXXXXX,  _______,
                                                   _______,  _______,  _______,  _______,  _______,                    _______,  _______,  _______,  _______,  _______
 )
 };
+
+enum custom_keycodes {
+    OS_UNDO = SAFE_RANGE,
+    OS_CUT,
+    OS_COPY,
+    OS_PASTE,
+};
+
+// Karabiner maps left Command to left Option. These shortcuts are defined by
+// the custom macOS Dvorak CS-DE input source.
+static const uint16_t lower_quote_keycodes[] = {
+    S(LGUI(KC_0)),       // ‚
+    LGUI(KC_EQL),        // ‘
+    S(LGUI(KC_EQL)),     // ’
+    S(LGUI(KC_COMM)),    // „
+    LGUI(KC_MINS),       // “
+    S(LGUI(KC_MINS)),    // ”
+};
+
+static void send_edit_shortcut(uint16_t keycode) {
+    const os_variant_t os = detected_host_os();
+    // Favor the primary macOS workflow until host detection settles. Windows
+    // and Linux are switched to Control as soon as they are identified.
+    const bool is_macos = os != OS_WINDOWS && os != OS_LINUX;
+
+    // Karabiner maps the Sofle's left Option to macOS Command. Windows and
+    // Linux receive their native Control shortcuts after host detection.
+    tap_code16(is_macos ? LALT(keycode) : LCTL(keycode));
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    // VIA's saved layout can override the compiled keycodes. Handle these six
+    // Lower-layer positions directly, without changing other VIA customizations.
+    if (layer_state_is(3) && record->event.key.row == 0 && record->event.key.col <= 5) {
+        if (record->event.pressed) {
+            tap_code16(lower_quote_keycodes[record->event.key.col]);
+        }
+        return false;
+    }
+
+    if (!record->event.pressed) {
+        return true;
+    }
+
+    switch (keycode) {
+        case KC_UNDO:
+        case OS_UNDO:
+            send_edit_shortcut(KC_SLSH);
+            return false;
+        case KC_CUT:
+        case OS_CUT:
+            send_edit_shortcut(KC_B);
+            return false;
+        case KC_COPY:
+        case OS_COPY:
+            send_edit_shortcut(KC_I);
+            return false;
+        case KC_PASTE:
+        case OS_PASTE:
+            send_edit_shortcut(KC_DOT);
+            return false;
+    }
+
+    return true;
+}
 
 bool caps_word_press_user(uint16_t keycode) {
     // Resolve wrapped keys to their TAP key so HRMs/LT() don't break Caps Word.
