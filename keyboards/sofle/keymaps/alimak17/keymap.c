@@ -16,6 +16,7 @@
   */
 
 #include QMK_KEYBOARD_H
+#include "sm_td.h"
 #include "oled.c"
 #include "encoder.c"
 
@@ -112,6 +113,30 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                                   _______,  _______,  _______,  _______,  _______,                    _______,  _______,  _______,  _______,  _______
 )
 };
+
+// SM_TD chordal hold: rows 0-3 are left-hand keys, rows 5-8 are right-hand
+// keys, and both thumb rows are neutral so either hand can use them as a chord.
+const char chordal_hold_layout[MATRIX_ROWS][MATRIX_COLS] PROGMEM = {
+    {'L', 'L', 'L', 'L', 'L', 'L'},
+    {'L', 'L', 'L', 'L', 'L', 'L'},
+    {'L', 'L', 'L', 'L', 'L', 'L'},
+    {'L', 'L', 'L', 'L', 'L', 'L'},
+    {'*', '*', '*', '*', '*', '*'},
+    {'R', 'R', 'R', 'R', 'R', 'R'},
+    {'R', 'R', 'R', 'R', 'R', 'R'},
+    {'R', 'R', 'R', 'R', 'R', 'R'},
+    {'R', 'R', 'R', 'R', 'R', 'R'},
+    {'*', '*', '*', '*', '*', '*'},
+};
+
+// Existing MT() and LT() keycodes use SM_TD's native QMK tap-hold support.
+// Keep this required extension hook unhandled so no bindings are redefined here.
+smtd_resolution on_smtd_action(uint16_t keycode, smtd_action action, uint8_t tap_count) {
+    (void)keycode;
+    (void)action;
+    (void)tap_count;
+    return SMTD_RESOLUTION_UNHANDLED;
+}
 
 enum custom_keycodes {
     OS_UNDO = SAFE_RANGE,

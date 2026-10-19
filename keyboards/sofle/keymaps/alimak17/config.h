@@ -24,3 +24,10 @@
 
 #define SPLIT_USB_DETECT
 #define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
+
+// Let SM_TD process the existing QMK MT() and LT() keycodes.
+#define SMTD_ENABLE_QMK_TAPHOLD 1
+#define SMTD_CHORDAL_HOLD 1
+
+// SM_TD can keep up to ten tap-hold states active at once.
+#define MAX_DEFERRED_EXECUTORS 10
