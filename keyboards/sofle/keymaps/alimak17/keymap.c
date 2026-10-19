@@ -167,7 +167,93 @@ static void send_edit_shortcut(uint16_t keycode) {
     tap_code16(is_macos ? LALT(keycode) : LCTL(keycode));
 }
 
+// The two physical Caps Lock thumb keys use distinct matrix positions even
+// when VIA assigns the same keycode. Let a single key pass through unchanged
+// so host remaps (Option on macOS, Kana on Windows) retain their hold behavior.
+// Hold a thumb key internally until it is used with another key or paired with
+// the other thumb key. The pair is consumed and enables Caps Word.
+static bool left_caps_thumb_pressed;
+static bool right_caps_thumb_pressed;
+static bool left_caps_thumb_pending;
+static bool right_caps_thumb_pending;
+static bool left_caps_thumb_committed;
+static bool right_caps_thumb_committed;
+static bool left_caps_thumb_consumed;
+static bool right_caps_thumb_consumed;
+static uint16_t left_caps_thumb_keycode;
+static uint16_t right_caps_thumb_keycode;
+
+static void commit_pending_caps_thumbs(void) {
+    if (left_caps_thumb_pending) {
+        register_code16(left_caps_thumb_keycode);
+        left_caps_thumb_pending = false;
+        left_caps_thumb_committed = true;
+    }
+    if (right_caps_thumb_pending) {
+        register_code16(right_caps_thumb_keycode);
+        right_caps_thumb_pending = false;
+        right_caps_thumb_committed = true;
+    }
+}
+
+static bool process_caps_thumb_chord(uint16_t keycode, keyrecord_t *record) {
+    bool *pressed;
+    bool *pending;
+    bool *committed;
+    bool *consumed;
+    uint16_t *stored_keycode;
+
+    if (record->event.key.row == 4 && record->event.key.col == 3) {
+        pressed = &left_caps_thumb_pressed;
+        pending = &left_caps_thumb_pending;
+        committed = &left_caps_thumb_committed;
+        consumed = &left_caps_thumb_consumed;
+        stored_keycode = &left_caps_thumb_keycode;
+    } else if (record->event.key.row == 9 && record->event.key.col == 3) {
+        pressed = &right_caps_thumb_pressed;
+        pending = &right_caps_thumb_pending;
+        committed = &right_caps_thumb_committed;
+        consumed = &right_caps_thumb_consumed;
+        stored_keycode = &right_caps_thumb_keycode;
+    } else {
+        return false;
+    }
+
+    if (record->event.pressed) {
+        *pressed = true;
+        *pending = true;
+        *stored_keycode = keycode;
+        if (left_caps_thumb_pending && right_caps_thumb_pending) {
+            left_caps_thumb_pending = false;
+            right_caps_thumb_pending = false;
+            left_caps_thumb_consumed = true;
+            right_caps_thumb_consumed = true;
+            caps_word_on();
+        }
+        return true;
+    }
+
+    *pressed = false;
+    if (*pending) {
+        tap_code16(*stored_keycode);
+        *pending = false;
+    } else if (*committed) {
+        unregister_code16(*stored_keycode);
+        *committed = false;
+    }
+    *consumed = false;
+    return true;
+}
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (process_caps_thumb_chord(keycode, record)) {
+        return false;
+    }
+
+    if (record->event.pressed) {
+        commit_pending_caps_thumbs();
+    }
+
     // VIA's saved layout can override the compiled keycodes. Handle these six
     // Lower-layer positions directly, without changing other VIA customizations.
     if (layer_state_is(3) && record->event.key.row == 0 && record->event.key.col <= 5) {
